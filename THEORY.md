@@ -179,6 +179,14 @@ Kp_d = Ld/(2τu)      Ki_d = Rs/(2τu)
 Kp_q = Lq/(2τu)      Ki_q = Rs/(2τu)
 ```
 
+**Calculated values used in the notebooks**, with `Rs=18 mΩ`, `Ld=180 µH`, `Lq=176 µH`,
+`τu=10 µs` (so `2τu = 20 µs`):
+
+```
+Kp_d = 180e-6 / 20e-6 = 9.0            Ki_d = 18e-3 / 20e-6 = 900.0
+Kp_q = 176e-6 / 20e-6 = 8.8            Ki_q = 18e-3 / 20e-6 = 900.0
+```
+
 ### 4.3 Controller equations and feedforward decoupling
 
 ```
@@ -296,7 +304,19 @@ fully vanishing:
 
 `ωn = 80,000 rad/s` (~51× the rated electrical frequency) was chosen as the practical
 balance — still well-conditioned for `scipy.integrate.solve_ivp`, and comfortably resolves
-the fast dynamics without an excessive step-size penalty. The residual ~0.04 rad bias that
+the fast dynamics without an excessive step-size penalty.
+
+**Calculated values used in the notebooks**, with `ωn = 80,000 rad/s`, `R = Rs = 18 mΩ`,
+`L = L_obs = (Ld+Lq)/2 = 178 µH` (so `R/L ≈ 101.12 rad/s`):
+
+```
+Ki_P = 3×80,000 − 101.12       ≈ 239,899
+Ke_P = 80,000² × 178e-6        = 1,139,200
+Ki_I = 2×80,000²               = 12,800,000,000   (1.28×10¹⁰)
+Ke_I = 80,000³ × 178e-6        ≈ 91,136,000,000   (≈9.114×10¹⁰)
+```
+
+The residual ~0.04 rad bias that
 remains even here is **not further tuning error** — it is traced to the observer's isotropic
 `L_obs` approximation of the real, slightly salient (`Ld≠Lq`) machine, which acts as a
 disturbance rotating at the electrical frequency; pure P+I correction reduces this
@@ -329,6 +349,13 @@ wrap-safe phase-error signal. `ωn,pll = 15,000 rad/s` (also retuned upward from
 is type-2, so it has zero steady-state error for a pure ramp/constant-speed input in
 principle, but still needs settling-time margin) and `ζ = 0.707`. `θ̂ = θ_pll`,
 `ω̂ = ω_pll` (electrical); `ω̂mech = ω_pll/p`.
+
+**Calculated values used in the notebooks**, with `ωn,pll = 15,000 rad/s`, `ζ = 0.707`:
+
+```
+Kp_pll = 2 × 0.707 × 15,000 = 21,210
+Ki_pll = 15,000²             = 225,000,000   (2.25×10⁸)
+```
 
 ## 6. Model and gain parameters (reference table)
 
