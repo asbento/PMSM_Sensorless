@@ -137,7 +137,20 @@ Ki_P, Ki_I, Ke_P, Ke_I = observer_gains(Rs, L_obs, omega_n_obs)
 # --------------------------------------------------------------------------------------
 # PLL gains (position/speed extraction from the observer's estimated back-EMF angle)
 # --------------------------------------------------------------------------------------
-omega_n_pll = 15000.0  # rad/s -- above omega_elec_rated (~1571 rad/s) with margin, below omega_n_obs
+# Unlike the observer (whose bandwidth vs. electrical frequency directly sets steady-state
+# accuracy), the PLL's steady-state accuracy for a constant-speed input is independent of its
+# bandwidth (a type-2 loop tracks a phase ramp with zero steady-state error regardless of
+# omega_n, given time to settle) -- confirmed empirically: sweeping omega_n_pll from 500 to
+# 15000 rad/s gave an IDENTICAL 0.0426 rad steady-state bias every time (set entirely by the
+# observer). Worse, a high omega_n_pll is actively harmful: fed a large, sudden phase step
+# (e.g. the theta+pi flip, notebook 03), the PLL's sin(.) phase detector is nonlinear, and a
+# high loop gain overreacts to a large-signal step in a cycle-slip-like way -- empirically a
+# sharp threshold near the rated electrical frequency (~1571 rad/s): negligible overshoot
+# below ~1000-1200 rad/s, thousands of rad/s of spurious overshoot above ~1600 rad/s (15000
+# rad/s gave an ~18,900 rad/s overshoot spike on a pure pi step). 800 rad/s keeps settling
+# time (~9 ms) far faster than the ~100 ms mechanical dynamics, with comfortable margin below
+# the instability threshold and zero cost to steady-state accuracy.
+omega_n_pll = 800.0
 zeta_pll = 0.707
 
 

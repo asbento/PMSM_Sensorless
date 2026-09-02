@@ -374,14 +374,38 @@ Kp_pll = 2·ζ·ωn,pll        Ki_pll = ωn,pll²
 ω̇_pll = Ki_pll·sin(θraw − θ_pll)
 ```
 
-`ωn,pll = 15,000 rad/s` and `ζ = 0.707`. `θ̂ = θ_pll`, `ω̂ = ω_pll` (electrical);
+`ωn,pll = 800 rad/s` and `ζ = 0.707`. `θ̂ = θ_pll`, `ω̂ = ω_pll` (electrical);
 `ω̂mech = ω_pll/p`.
 
-**Calculated values used in the notebooks**, with `ωn,pll = 15,000 rad/s`, `ζ = 0.707`:
+**Choosing `ωn,pll`.** Unlike the observer (§5.3), where bandwidth vs. electrical frequency
+directly sets steady-state accuracy, a type-2 PLL tracks a constant-speed (ramp-phase) input
+with **zero steady-state error regardless of bandwidth**, given enough time to settle — this
+was confirmed empirically: sweeping `ωn,pll` from 500 to 15,000 rad/s (with the observer fixed
+at `ωn=80,000`) gave an *identical* 0.0426 rad steady-state position error every time. So a
+high `ωn,pll` buys nothing for accuracy. It does actively hurt robustness: since the phase
+detector is nonlinear (`sin(·)`), a high loop gain reacting to a *large, sudden* phase step —
+exactly what happens during the `θ+π` flip discussed in Section 7.2 — overreacts in a
+cycle-slip-like way. Feeding the PLL alone a synthetic `π` phase step at the rated electrical
+frequency and measuring the peak speed-estimate overshoot:
+
+| `ωn,pll` (rad/s) | peak overshoot on a π phase step |
+|---|---|
+| 600 – 1,000 | ~0 rad/s |
+| 1,200 | ~1 rad/s |
+| 1,400 | ~44 rad/s |
+| 1,600 | ~1,450 rad/s |
+| 15,000 (an earlier, over-tuned choice) | ~18,900 rad/s |
+
+There is a sharp instability threshold right around the rated electrical frequency
+(~1,571 rad/s). `ωn,pll = 800 rad/s` was chosen for comfortable margin below that threshold,
+while its settling time (`~5/(ζωn) ≈ 9 ms`) remains far faster than the ~100 ms mechanical
+dynamics — no accuracy cost, and a much gentler reaction to the θ+π flip (see notebook 03).
+
+**Calculated values used in the notebooks**, with `ωn,pll = 800 rad/s`, `ζ = 0.707`:
 
 ```
-Kp_pll = 2 × 0.707 × 15,000 = 21,210
-Ki_pll = 15,000²             = 225,000,000   (2.25×10⁸)
+Kp_pll = 2 × 0.707 × 800 = 1,131.2
+Ki_pll = 800²             = 640,000
 ```
 
 ## 6. Model and gain parameters (reference table)
@@ -425,10 +449,10 @@ Ki_pll = 15,000²             = 225,000,000   (2.25×10⁸)
 | `Ki_I` | 1.28×10¹⁰ |
 | `Ke_P` | 1,139,200 |
 | `Ke_I` | ≈9.114×10¹⁰ |
-| `ωn,pll` | 15,000 rad/s |
+| `ωn,pll` | 800 rad/s |
 | `ζ` (PLL damping) | 0.707 |
-| `Kp_pll` | 21,210 |
-| `Ki_pll` | 2.25×10⁸ |
+| `Kp_pll` | 1,131.2 |
+| `Ki_pll` | 640,000 |
 
 All of the above are computed by formula in `pmsm_common.py` (`current_pi_gains`,
 `observer_gains`, `pll_gains`) from the handful of top-level constants — not hardcoded twice
