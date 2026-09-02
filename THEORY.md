@@ -255,8 +255,14 @@ requires the observed sign.
 
 ### 5.3 Observer gain derivation (pole placement)
 
-The source paper describes the PI-corrected structure but gives no numeric tuning. Gains
-here are derived by placing the observer's own linearized error dynamics (a 3-state system
+> **The tuning method in this subsection is not in the source literature.** The paper defines
+> the Structure-B equations (§5.2) but gives no gain values and no design procedure — its
+> experiments simply state that gains were chosen, not how. The pole-placement method below
+> (a standard linear-observer design technique, not specific to this paper) was added to get
+> from "here is the structure" to "here are numbers to actually run," and is a genuine design
+> choice on top of the source material.
+
+Gains here are derived by placing the observer's own linearized error dynamics (a 3-state system
 per axis: current error `ei = i−î`, back-EMF error `ee = e−ê`, and the integral state `z`) at
 a **triple real pole** `s = −ωn`:
 
@@ -325,16 +331,41 @@ frequency — a standard sinusoidal-disturbance-rejection limit, not a bug.
 
 ### 5.4 Position/speed extraction — type-2 PLL
 
-The raw angle is recovered from the estimated back-EMF vector's direction:
+> **This entire subsection is not in the source literature.** The paper (Urbanski 2015) gives
+> only two position/speed outputs: `sin(θ̂)=−êα/|ê|, cos(θ̂)=êβ/|ê|` (its eq. 9, a direct,
+> unfiltered trigonometric read-off — no dynamics), and `ω̂=|ê|/ke` (its eq. 11, dividing the
+> back-EMF magnitude by a scaling constant) — and then **shows its own eq. 11 to be unreliable**
+> (noisy/non-sinusoidal at low speed; its Figs. 6, 7, 12), without proposing a fix. The PLL
+> below is a standard technique from general sensorless-AC-drive practice, added here to give a
+> usable `ω̂` given that our torque schedule crosses zero speed — exactly where the paper's own
+> method is weakest. It is a genuine addition on top of the source material, not a derivation
+> from it, and is called out as such.
+
+The raw angle is still recovered the paper's way — from the estimated back-EMF vector's
+direction (its eq. 9, rewritten with `atan2`):
 
 ```
 θraw = atan2(−êα, êβ)
 ```
 
-(the paper's own alternative — computing speed directly from the back-EMF magnitude — is
-explicitly shown in the source paper to be unreliable at low speed, and our schedule crosses
-zero speed, so it is not used here.) `θraw` is fed into a standard type-2 PLL for a smooth
-`θ̂, ω̂`:
+**PLL structure.** A type-2 PLL is a 3-block closed loop, directly analogous to a hardware
+phase-locked loop (the same structure used e.g. for grid synchronization in inverters):
+
+```
+θraw ──▶ (Σ) ──▶ [phase detector: sin(θraw − θ_pll)] ──▶ [PI loop filter: Kp_pll + Ki_pll/s] ──▶ ω_pll ──▶ [∫dt] ──▶ θ_pll
+          ▲                                                                                                    │
+          └────────────────────────────────── θ_pll feedback ───────────────────────────────────────────────┘
+```
+
+- The **phase detector** is `sin(θraw − θ_pll)` rather than a plain subtraction — a standard,
+  wrap-safe error signal (behaves like `θraw−θ_pll` for small errors, stays bounded for large
+  ones, and is insensitive to the `2π` ambiguity of angles).
+- The **PI loop filter** (`Kp_pll`, `Ki_pll`) is what makes it *type-2*: the integral term means
+  `θ_pll` tracks a constant-speed input (a ramp in phase) with **zero steady-state phase
+  error**, not just zero-error-at-DC like a plain proportional (type-1) tracker would.
+- The **integrator** turns the filter's output `ω_pll` (the speed estimate) into the tracked
+  phase `θ_pll`, closing the loop back into the phase detector — this integrator is the
+  PLL's analog of a voltage-controlled oscillator (VCO) in a hardware PLL.
 
 ```
 Kp_pll = 2·ζ·ωn,pll        Ki_pll = ωn,pll²
@@ -343,12 +374,8 @@ Kp_pll = 2·ζ·ωn,pll        Ki_pll = ωn,pll²
 ω̇_pll = Ki_pll·sin(θraw − θ_pll)
 ```
 
-using `sin(·)` of the angle difference (rather than a plain subtraction) as a standard,
-wrap-safe phase-error signal. `ωn,pll = 15,000 rad/s` (also retuned upward from an initial
-1,000 rad/s for the same electrical-frequency-margin reason as the observer itself — the PLL
-is type-2, so it has zero steady-state error for a pure ramp/constant-speed input in
-principle, but still needs settling-time margin) and `ζ = 0.707`. `θ̂ = θ_pll`,
-`ω̂ = ω_pll` (electrical); `ω̂mech = ω_pll/p`.
+`ωn,pll = 15,000 rad/s` and `ζ = 0.707`. `θ̂ = θ_pll`, `ω̂ = ω_pll` (electrical);
+`ω̂mech = ω_pll/p`.
 
 **Calculated values used in the notebooks**, with `ωn,pll = 15,000 rad/s`, `ζ = 0.707`:
 
